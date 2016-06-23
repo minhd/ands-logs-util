@@ -1,7 +1,8 @@
 {
     "require": {
         "symfony/console": "~2.0",
-        "jaybizzle/crawler-detect" :"1.*"
+        "jaybizzle/crawler-detect" :"1.*",
+        "vlucas/phpdotenv": "^2.3"
     },
     "autoload": {
         "psr-4": {
