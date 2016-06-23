@@ -7,7 +7,12 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
+/**
+ * MinhD\ANDSLogUtil\ProcessCommand
+ * Usage: php ands-log process --from_date --to_date --from_dir --to_dir
+ */
 class ProcessCommand extends Command
 {
 
@@ -22,9 +27,10 @@ class ProcessCommand extends Command
     {
         $this->setName('process')
             ->setDescription('Process the Log Directory')
-            ->addOption('from_dir', null, InputOption::VALUE_OPTIONAL, "Set the from directory", 'default_input_dir')
-            ->addOption('to_dir', null, InputOption::VALUE_OPTIONAL, "Set the to directory", 'default_output_dir')
-            ->addOption('from_date', null, InputOption::VALUE_OPTIONAL, "Set the to directory", 'default_output_dir')
+            ->addOption('from_dir', null, InputOption::VALUE_OPTIONAL, "Set the from directory", '/Users/mnguyen/dev/elk/logs/')
+            ->addOption('to_dir', null, InputOption::VALUE_OPTIONAL, "Set the to directory", '/Users/mnguyen/dev/elk/processed_logs/')
+            ->addOption('from_date', null, InputOption::VALUE_OPTIONAL, "Process from a date yyyy-mm-dd", false)
+            ->addOption('to_date', null, InputOption::VALUE_OPTIONAL, "Process to a date yyyy-mm-dd", false)
             ->addArgument('type', InputArgument::OPTIONAL, 'Log type to process', 'portal');
     }
 
@@ -41,63 +47,207 @@ class ProcessCommand extends Command
 
         // option: log type
         $logType = $input->getArgument('type');
+        $fromDir = $input->getOption('from_dir');
+        $toDir = $input->getOption('to_dir');
 
         // read the from directory for dates
-        $fromDir = '/Users/mnguyen/dev/elk/logs/'.$logType;
+        $fromDir = $fromDir.$logType;
         $this->verbose('Processing directory: '. $fromDir);
-
         $dates = $this->readDirectory($fromDir);
         $this->debug('Found '.count($dates). ' dates for processing');
 
+        // prepare dates array with optional from and to
+        $dates = $this->prepareDates($dates, $input);
 
-        // option: fromDate in desc order
-        // @todo
+        $this->verbose('Processing '.count($dates). ' dates starting with '.reset($dates). ' ends with '.end($dates));
 
-        // order the dates
+        // Process the logs
+        foreach ($dates as $date) {
+            $this->processLogFile($date, $fromDir, $logType, $toDir);
+        }
+
+        $this->output('Done!');
+    }
+
+    private function processLogFile($date, $fromDir, $logType, $toDir)
+    {
+        $this->debug('Processing '. $date);
+        $filePath = $fromDir.'/log-'.$logType.'-'.$date.'.php';
+        $this->debug('File path: '. $filePath);
+
+        $lines = $this->readFileToLine($filePath);
+        $this->debug('Lines count: '. count($lines));
+
+        $this->ensureDirectoryCreation([$toDir, $toDir.$logType]);
+
+        $outputFilePath = $toDir.$logType.'/'.$date.'.log';
+
+        $CrawlerDetect = new CrawlerDetect();
+
+        foreach ($lines as $line) {
+            $content = $this->readString($line);
+
+            // does not convert empty event or event without date
+            if (!$content || count($content) === 0 || !array_key_exists('date', $content)) {
+                continue;
+            }
+
+            // does not convert bot events
+            $content['user_agent'] = array_key_exists('user_agent', $content) ? $content['user_agent'] : 'dude';
+            $content['is_bot'] = $CrawlerDetect->isCrawler($content['user_agent']) ? true : false;
+            if ($content['is_bot']) {
+                continue;
+            }
+
+            // construct the event
+            $event = array_key_exists('event', $content) ? $content['event'] : 'unknown_event';
+            $parsed = [
+                '@timestamp' => date("c", strtotime($content['date'])),
+                '@source' => 'localhost',
+                '@message' => $event,
+                '@tags' => [$logType, $event],
+                '@type' => $logType,
+                'channel' => $logType,
+                'level' => 200
+            ];
+
+            // fix/add registryObject data
+            $content = $this->parseRegistryObjectFields($content);
+
+            // parse splittable fields logic
+            $content = $this->parseSplittableFields($content);
+
+            // parse data after content is alright
+            foreach ($content as $key=>$value) {
+                $parsed['@fields']['ctxt_'.$key] = $value;
+            }
+
+            $message = json_encode($parsed);
+
+            $this->writeToFile($outputFilePath, $message);
+
+            // $this->debug($message);
+            unset($content);
+            unset($parsed);
+        }
+        $this->verbose('Finished '.$date);
+    }
+
+    private function ensureDirectoryCreation($dirs)
+    {
+        foreach ($dirs as $dir) {
+            $this->debug($dir. ' does not exist Attempting to create');
+            @mkdir($dir);
+            @chmod($dir, 0755);
+        }
+    }
+
+    private function writeToFile($outputFilePath, $message)
+    {
+        if (file_exists($outputFilePath)) {
+            $fh = fopen($outputFilePath, 'a');
+            fwrite($fh, $message."\n");
+        } else {
+            $fh = fopen($outputFilePath, 'w');
+            fwrite($fh, $message."\n");
+        }
+        fclose($fh);
+    }
+
+    private function parseRegistryObjectFields($content)
+    {
+        if (isset($content['roclass']) && !isset($content['class'])) {
+            $content['class'] = $content['roclass'];
+        }
+
+        if (isset($content['dsid']) && !isset($content['data_source_id'])) {
+            $content['data_source_id'] = $content['dsid'];
+        }
+        return $content;
+    }
+
+    private function parseSplittableFields($content)
+    {
+        $splittableFields = ['result_roid', 'result_group', 'result_dsid'];
+        foreach ($splittableFields as $field) {
+            if (array_key_exists($field, $content)) {
+                $content[$field] = explode(',,', $content[$field]);
+            }
+        }
+        return $content;
+    }
+
+    private function prepareDates($dates)
+    {
         foreach ($dates as &$date) {
             $date = str_replace("log-portal-", "", $date);
             $date = str_replace(".php", "", $date);
         }
         $dates = array_values($dates);
         $this->debug('Removed the log-portal- prefix and .php affix');
-
         natsort($dates);
         $this->debug('Naturally sorted the dates');
 
-        // Clean Up
         date_default_timezone_set('UTC');
         $dates = $this->date_range(reset($dates), end($dates), '+1day', 'Y-m-d');
         $this->debug('Constructed a date range between the first and last date by 1 day');
         $dates = array_reverse($dates);
         $this->debug('Reversed the dates');
 
-        if ($date_from) {
-            $key = array_search($date_from, $dates);
-            $dates = array_slice($dates, $key);
+
+        if ($from_date = $this->input->getOption('from_date')) {
+            $dates = array_slice($dates, array_search($from_date, $dates));
+            $this->debug('From Date: '. $from_date);
         }
 
-        $this->verbose('Processing '.count($dates). ' dates starting with '.reset($dates). ' ends with '.end($dates));
-
-        // Process the logs
-        foreach ($dates as $date) {
-            $this->processLogFile($date);
+        if ($to_date = $this->input->getOption('to_date')) {
+            $dates = array_reverse($dates);
+            $dates = array_slice($dates, array_search($to_date, $dates));
+            $dates = array_reverse($dates);
+            $this->debug('To Date: '. $to_date);
         }
 
-        // foreach date read the lines
-
-        // construct a file to store the date result
-        // for each line, process them into content
-        // fill up the content with relevant data
-        //
-
-        $this->output('Done!');
+        return $dates;
     }
 
-    private function processLogFile($date)
+    /**
+     * Read a local file path and return the lines
+     * @author  Minh Duc Nguyen <minh.nguyen@ands.org.au>
+     * @param  string $file File Path Local
+     * @return array()
+     */
+    private function readFileToLine($file)
     {
-        $this->debug('Processing '. $date);
-        $filePath = $fromDir.'/log-'.$logType.'-'.$date.'.php';
-        $this->debug('File path: '. $filePath);
+        $lines = array();
+        if (file_exists($file)) {
+            $file_handle = fopen($file, "r");
+            while (!feof($file_handle)) {
+                $line = fgets($file_handle);
+                $lines[] = $line;
+            }
+            fclose($file_handle);
+        }
+        return $lines;
+    }
+
+    /**
+     * Read a string in the form of [key:value]
+     * and return an array of key=>value in PHP
+     * @author  Minh Duc Nguyen <minh.nguyen@ands.org.au>
+     * @param  string $string
+     * @return array(key=>value)
+     */
+    private function readString($string)
+    {
+        $result = array();
+        preg_match_all("/\[([^\]]*)\]/", $string, $matches);
+        foreach ($matches[1] as $match) {
+            $array = explode(':', $match, 2);
+            if ($array && is_array($array) && isset($array[0]) && isset($array[1])) {
+                $result[$array[0]] = $array[1];
+            }
+        }
+        return $result;
     }
 
     /**
@@ -121,7 +271,6 @@ class ProcessCommand extends Command
      */
     private function date_range($first, $last, $step = '+1 day', $output_format = 'd/m/Y')
     {
-
         $dates = array();
         $current = strtotime($first);
         $last = strtotime($last);

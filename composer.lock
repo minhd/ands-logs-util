@@ -4,9 +4,57 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "d8067b2d7dab2917cbf9b21749b5e497",
-    "content-hash": "8189fc336aa8df683c9f1563de37644f",
+    "hash": "d059efbcbada7d258b693ec8e896dfcc",
+    "content-hash": "93b54d4204db51c6977eb69828bec4e5",
     "packages": [
+        {
+            "name": "jaybizzle/crawler-detect",
+            "version": "v1.2.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/JayBizzle/Crawler-Detect.git",
+                "reference": "205473800d478c19f80306544262acfa1db345ff"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/JayBizzle/Crawler-Detect/zipball/205473800d478c19f80306544262acfa1db345ff",
+                "reference": "205473800d478c19f80306544262acfa1db345ff",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Jaybizzle\\CrawlerDetect\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Mark Beech",
+                    "email": "m@rkbee.ch",
+                    "role": "Developer"
+                }
+            ],
+            "description": "CrawlerDetect is a PHP class for detecting bots/crawlers/spiders via the user agent",
+            "homepage": "https://github.com/JayBizzle/Crawler-Detect/",
+            "keywords": [
+                "crawler",
+                "crawler detect",
+                "crawler detector",
+                "crawlerdetect",
+                "php crawler detect"
+            ],
+            "time": "2016-06-16 14:35:48"
+        },
         {
             "name": "symfony/console",
             "version": "v2.8.7",
