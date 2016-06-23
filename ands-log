@@ -1,0 +1,8 @@
+#! /usr/bin/env php
+<?php
+
+require 'vendor/autoload.php';
+
+$app = new Symfony\Component\Console\Application("ANDS Log Utilities", "0.1");
+$app->add(new MinhD\ANDSLogUtil\ProcessCommand);
+$app->run();
