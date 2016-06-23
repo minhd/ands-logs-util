@@ -31,6 +31,7 @@ class ProcessCommand extends Command
             ->addOption('to_dir', null, InputOption::VALUE_OPTIONAL, "Set the to directory", '/Users/mnguyen/dev/elk/processed_logs/')
             ->addOption('from_date', null, InputOption::VALUE_OPTIONAL, "Process from a date yyyy-mm-dd", false)
             ->addOption('to_date', null, InputOption::VALUE_OPTIONAL, "Process to a date yyyy-mm-dd", false)
+            ->addOption('test', null, InputOption::VALUE_OPTIONAL, "Development Test", false)
             ->addArgument('type', InputArgument::OPTIONAL, 'Log type to process', 'portal');
     }
 
@@ -44,6 +45,12 @@ class ProcessCommand extends Command
     {
         $this->input = $input;
         $this->output = $output;
+
+
+        if ($test = $input->getOption('test')) {
+            $this->test();
+            die();
+        }
 
         // option: log type
         $logType = $input->getArgument('type');
@@ -67,6 +74,12 @@ class ProcessCommand extends Command
         }
 
         $this->output('Done!');
+    }
+
+    private function test()
+    {
+        $this->verbose('Test Mode');
+
     }
 
     private function processLogFile($date, $fromDir, $logType, $toDir)
