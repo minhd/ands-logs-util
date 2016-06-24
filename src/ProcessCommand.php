@@ -2,12 +2,14 @@
 
 namespace MinhD\ANDSLogUtil;
 
+use Jaybizzle\CrawlerDetect\CrawlerDetect;
+use MinhD\ANDSLogUtil\DatabaseAdapter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Jaybizzle\CrawlerDetect\CrawlerDetect;
+use Symfony\Component\Finder\Finder;
 
 /**
  * MinhD\ANDSLogUtil\ProcessCommand
@@ -18,6 +20,14 @@ class ProcessCommand extends Command
 
     protected $input;
     protected $output;
+    protected $db;
+
+    function __construct(DatabaseAdapter $databaseAdapter)
+    {
+        $this->db = $databaseAdapter;
+        $this->crawlerDetect = new CrawlerDetect;
+        parent::__construct();
+    }
 
     /**
      * Configure the Command
@@ -31,7 +41,7 @@ class ProcessCommand extends Command
             ->addOption('to_dir', null, InputOption::VALUE_OPTIONAL, "Set the to directory", '/Users/mnguyen/dev/elk/processed_logs/')
             ->addOption('from_date', null, InputOption::VALUE_OPTIONAL, "Process from a date yyyy-mm-dd", false)
             ->addOption('to_date', null, InputOption::VALUE_OPTIONAL, "Process to a date yyyy-mm-dd", false)
-            ->addOption('test', null, InputOption::VALUE_OPTIONAL, "Development Test", false)
+            // ->addOption('test', null, InputOption::VALUE_OPTIONAL, "Development Test", false)
             ->addArgument('type', InputArgument::OPTIONAL, 'Log type to process', 'portal');
     }
 
@@ -46,18 +56,15 @@ class ProcessCommand extends Command
         $this->input = $input;
         $this->output = $output;
 
-
-        if ($test = $input->getOption('test')) {
-            $this->test();
-            die();
-        }
-
-        // option: log type
+        // capture options
         $logType = $input->getArgument('type');
         $fromDir = $input->getOption('from_dir');
         $toDir = $input->getOption('to_dir');
 
-        // read the from directory for dates
+        /**
+         * read the From Directory to get a list of files and dates
+         * @todo refactor to use symfony/finder component
+         */
         $fromDir = $fromDir.$logType;
         $this->verbose('Processing directory: '. $fromDir);
         $dates = $this->readDirectory($fromDir);
@@ -70,32 +77,29 @@ class ProcessCommand extends Command
 
         // Process the logs
         foreach ($dates as $date) {
-            $this->processLogFile($date, $fromDir, $logType, $toDir);
+            $this->ensureDirectoryCreation([$toDir, $toDir.$logType]);
+            $inputFilePath = $fromDir.'/log-'.$logType.'-'.$date.'.php';
+            $outputFilePath = $toDir.$logType.'/'.$date.'.log';
+            $this->processLogFile($date, $logType, $inputFilePath, $outputFilePath);
         }
 
         $this->output('Done!');
     }
 
-    private function test()
-    {
-        $this->verbose('Test Mode');
-
-    }
-
-    private function processLogFile($date, $fromDir, $logType, $toDir)
+    /**
+     * Process a single log date
+     * @param  string $date    yyyy-mm-dd
+     * @param  string $logType
+     * @param  string $inputFilePath
+     * @param  string $outputFilePath
+     * @return void
+     */
+    private function processLogFile($date, $logType, $inputFilePath, $outputFilePath)
     {
         $this->debug('Processing '. $date);
-        $filePath = $fromDir.'/log-'.$logType.'-'.$date.'.php';
-        $this->debug('File path: '. $filePath);
-
-        $lines = $this->readFileToLine($filePath);
+        $this->debug('File path: '. $inputFilePath);
+        $lines = $this->readFileToLine($inputFilePath);
         $this->debug('Lines count: '. count($lines));
-
-        $this->ensureDirectoryCreation([$toDir, $toDir.$logType]);
-
-        $outputFilePath = $toDir.$logType.'/'.$date.'.log';
-
-        $CrawlerDetect = new CrawlerDetect();
 
         foreach ($lines as $line) {
             $content = $this->readString($line);
@@ -107,7 +111,8 @@ class ProcessCommand extends Command
 
             // does not convert bot events
             $content['user_agent'] = array_key_exists('user_agent', $content) ? $content['user_agent'] : 'dude';
-            $content['is_bot'] = $CrawlerDetect->isCrawler($content['user_agent']) ? true : false;
+            $content['is_bot'] = $this->isBot($content['user_agent']);
+
             if ($content['is_bot']) {
                 continue;
             }
@@ -146,15 +151,46 @@ class ProcessCommand extends Command
         $this->verbose('Finished '.$date);
     }
 
+    /**
+     * return if a given user agent is a bot
+     * @param  string  $agent
+     * @return boolean
+     */
+    private function isBot($agent)
+    {
+        if ($this->crawlerDetect->isCrawler($agent)
+            || strpos($agent, 'uptimedoctor') > 0
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Ensure that the given directories are created and writable
+     * @todo refactor to use symfony/filesystem component
+     * @param  array $dirs list of directory
+     * @return void
+     */
     private function ensureDirectoryCreation($dirs)
     {
         foreach ($dirs as $dir) {
-            $this->debug($dir. ' does not exist Attempting to create');
-            @mkdir($dir);
-            @chmod($dir, 0755);
+            if (!is_dir($dir)) {
+                $this->debug($dir. ' does not exist Attempting to create');
+                @mkdir($dir);
+                @chmod($dir, 0755);
+            }
         }
     }
 
+    /**
+     * Write the content to a file
+     * @todo refactor to use symfony/filesystem component
+     * @param  string $outputFilePath
+     * @param  string $message
+     * @return void
+     */
     private function writeToFile($outputFilePath, $message)
     {
         if (file_exists($outputFilePath)) {
@@ -167,6 +203,11 @@ class ProcessCommand extends Command
         fclose($fh);
     }
 
+    /**
+     * parse the content and check for registry object related fields
+     * @param  array $content
+     * @return array
+     */
     private function parseRegistryObjectFields($content)
     {
         if (isset($content['roclass']) && !isset($content['class'])) {
@@ -176,9 +217,43 @@ class ProcessCommand extends Command
         if (isset($content['dsid']) && !isset($content['data_source_id'])) {
             $content['data_source_id'] = $content['dsid'];
         }
+
+        // terminate and return early if no roid is found in this event
+        if (!array_key_exists('roid', $content)) {
+            return $content;
+        }
+
+        /**
+         * collect additional metadata from the database
+         * @todo record_owner
+         */
+        if ($record = $this->db->getRecord($content['roid'])) {
+
+            // additional metadata
+            $fields = ['group', 'slug', 'data_source_id', 'group', 'key', 'type'];
+            foreach ($fields as $field) {
+                if (array_key_exists($field, $record)) {
+                    $content[$field] = $record[$field];
+                } else {
+                    $content['unknown_'.$field] = true;
+                }
+            }
+
+            // record owners
+            $content['record_owners'] = $this->db->getRecordOwners($record['data_source_id']);
+
+        } else {
+            $content['unknown'] = true;
+        }
+
         return $content;
     }
 
+    /**
+     * parse fields that are splittable by a glue
+     * @param  array $content
+     * @return array
+     */
     private function parseSplittableFields($content)
     {
         $splittableFields = ['result_roid', 'result_group', 'result_dsid'];
@@ -187,9 +262,16 @@ class ProcessCommand extends Command
                 $content[$field] = explode(',,', $content[$field]);
             }
         }
+
         return $content;
     }
 
+    /**
+     * Prepare the dates
+     * Used the InputInterface to determine the process date range
+     * @param  array $dates
+     * @return array
+     */
     private function prepareDates($dates)
     {
         foreach ($dates as &$date) {

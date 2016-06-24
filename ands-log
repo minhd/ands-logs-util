@@ -1,13 +1,22 @@
 #! /usr/bin/env php
 <?php
 
+use MinhD\ANDSLogUtil\DatabaseAdapter;
+use MinhD\ANDSLogUtil\ProcessCommand;
+use Symfony\Component\Console\Application;
+
 require 'vendor/autoload.php';
 
 $dotenv = new Dotenv\Dotenv(__DIR__);
 $dotenv->load();
 
-// var_dump(getenv('DB_HOST'));
+$databaseAdapter = new DatabaseAdapter($config = [
+    'DB_HOST' => getenv('DB_HOST'),
+    'DB_USER' => getenv('DB_USER'),
+    'DB_PASS' => getenv('DB_PASS'),
+    'DB_DATABASE' => getenv('DB_DATABASE'),
+]);
 
-$app = new Symfony\Component\Console\Application("ANDS Log Utilities", "0.1");
-$app->add(new MinhD\ANDSLogUtil\ProcessCommand);
+$app = new Application("ANDS Log Utilities", "0.1");
+$app->add(new ProcessCommand($databaseAdapter));
 $app->run();
