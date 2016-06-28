@@ -95,8 +95,8 @@ class DatabaseAdapter
         $query = $this->db_roles->query("
 SELECT *
 FROM dbs_roles.role_relations as relation, dbs_roles.roles as roles
-where child_role_id = '{$sanitized}'
-and roles.role_id = relation.parent_role_id
+where parent_role_id = '{$sanitized}'
+and roles.role_id = relation.child_role_id
 and roles.role_type_id = 'ROLE_ORGANISATIONAL'");
 
         if (!$query->num_rows) {
@@ -105,9 +105,9 @@ and roles.role_type_id = 'ROLE_ORGANISATIONAL'");
 
         $result = [];
         while ($row = $query->fetch_assoc()) {
-            if (!in_array($row['parent_role_id'], $processed)) {
-                $result[] = $row['parent_role_id'];
-                $parents = $this->getParentRoles($row['parent_role_id'], $result);
+            if (!in_array($row['child_role_id'], $processed)) {
+                $result[] = $row['child_role_id'];
+                $parents = $this->getParentRoles($row['child_role_id'], $result);
                 if (count($parents) > 0) {
                     $result = array_merge($result, $parents);
                 }

@@ -17,6 +17,8 @@ $databaseAdapter = new DatabaseAdapter($config = [
     'DB_DATABASE' => getenv('DB_DATABASE'),
 ]);
 
+$processCommand = new ProcessCommand($databaseAdapter);
+
 $app = new Application("ANDS Log Utilities", "0.1");
-$app->add(new ProcessCommand($databaseAdapter));
+$app->add($processCommand);
 $app->run();

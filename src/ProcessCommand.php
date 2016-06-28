@@ -102,6 +102,7 @@ class ProcessCommand extends Command
         $this->debug('Lines count: '. count($lines));
 
         foreach ($lines as $line) {
+
             $content = $this->readString($line);
 
             // does not convert empty event or event without date
@@ -117,30 +118,7 @@ class ProcessCommand extends Command
                 continue;
             }
 
-            // construct the event
-            $event = array_key_exists('event', $content) ? $content['event'] : 'unknown_event';
-            $parsed = [
-                '@timestamp' => date("c", strtotime($content['date'])),
-                '@source' => 'localhost',
-                '@message' => $event,
-                '@tags' => [$logType, $event],
-                '@type' => $logType,
-                'channel' => $logType,
-                'level' => 200
-            ];
-
-            // fix/add registryObject data
-            $content = $this->parseRegistryObjectFields($content);
-
-            // parse splittable fields logic
-            $content = $this->parseSplittableFields($content);
-
-            // parse data after content is alright
-            foreach ($content as $key=>$value) {
-                $parsed['@fields']['ctxt_'.$key] = $value;
-            }
-
-            $message = json_encode($parsed);
+            $message = $this->processLineEvent($content, $logType);
 
             $this->writeToFile($outputFilePath, $message);
 
@@ -149,6 +127,205 @@ class ProcessCommand extends Command
             unset($parsed);
         }
         $this->verbose('Finished '.$date);
+    }
+
+    public function processLineEvent($content, $logType)
+    {
+
+        // construct the event
+        $event = array_key_exists('event', $content) ? $content['event'] : 'unknown_event';
+        $parsed = [
+            '@timestamp' => date("c", strtotime($content['date'])),
+            '@source' => 'localhost',
+            '@message' => $event,
+            '@tags' => [$logType, $event],
+            '@type' => $logType
+        ];
+
+        // fix/add registryObject data
+        // $content = $this->parseRegistryObjectFields($content);
+
+        // parse splittable fields logic
+        $content = $this->parseSplittableFields($content);
+
+        // parse data after content is alright
+        // foreach ($content as $key=>$value) {
+        //     $parsed['@fields_old'][$key] = $value;
+        // }
+
+        $fields = [];
+        $fields = array_merge($fields, $this->parseEvent($content));
+        $fields = array_merge($fields, $this->parseUser($content));
+
+        foreach ($fields as $key=>$value) {
+            $parsed['@fields'][$key] = $value;
+        }
+
+        $message = json_encode($parsed);
+        return $message;
+    }
+
+    private function parseUser($content)
+    {
+        $user = [
+            'ip' => $content['ip'],
+            'user_agent' => $content['user_agent'],
+            'is_bot' => isset($content['is_bot']) ? $content['is_bot'] : $this->isBot($content['user_agent'])
+        ];
+
+        if (array_key_exists('username', $content)) {
+            $user['username'] = $content['username'];
+        }
+
+        if (array_key_exists('userid', $content)) {
+            $user['userid'] = $content['userid'];
+        }
+
+        return [
+            'user' => $user
+        ];
+    }
+
+    private function parseEvent($content)
+    {
+        switch ($content['event']) {
+            case "portal_view":
+                return [
+                    'event' => 'portal_view',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'record' => $this->parseRecordFields($content['roid'])
+                ];
+                break;
+            case "portal_search":
+                return [
+                    'event' => 'portal_search',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'filters' => $this->parseFiltersFields($content),
+                    'result' => $this->parseResultFields($content)
+                ];
+                break;
+            case "portal_modify_user_data":
+                $action = array_key_exists('action', $content) ? $content['action']: null;
+                $event = [
+                    'event' => 'portal_modify_user_data',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'profile_action' => [
+                        'action' => $content['action']
+                    ]
+                ];
+                if (array_key_exists('raw', $content)
+                    && $decoded = json_decode($content['raw'], true)
+                    ) {
+                    $event['profile_action']['data'] = $decoded;
+                }
+                return $event;
+                break;
+            case "portal_tag_add":
+                $tag = array_key_exists('tag', $content) ? $content['tag'] : null;
+                return [
+                    'record' => $this->parseRecordFields($content['id']),
+                    'tag' => ['value' => $tag]
+                ];
+                break;
+            case "portal_preview":
+                $event = [
+                    'event' => 'portal_preview',
+                    'channel' => 'portal',
+                    'level' => 200
+                ];
+
+                if (isset($content['roid'])) {
+                    $event['record'] = $this->parseRecordFields($content['roid']);
+                }
+
+                if (isset($content['identifier_relation_id'])) {
+                    $event['identifier_relation_id'] = $content['identifier_relation_id'];
+                }
+
+                if (isset($content['identifier_doi'])) {
+                    $event['identifier_doi'] = $content['identifier_doi'];
+                }
+
+                return $event;
+
+                break;
+            case "portal_page":
+                return [
+                    'event' => 'portal_page',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'page' => $content['page']
+                ];
+                break;
+            case "accessed":
+                return [
+                    'event' => 'portal_accessed',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'record' => $this->parseRecordFields($content['roid'])
+                ];
+                break;
+            case "portal_dashboard":
+                return [
+                    'event' => 'portal_dashboard',
+                    'channel' => 'portal',
+                    'level' => 200
+                ];
+                break;
+            default:
+                $this->debug("No handler for: ". $content['event']);
+                return [
+                    'event' => "unknown event: ".$content['event']
+                ];
+                break;
+        }
+
+    }
+
+    private function parseRecordFields($id)
+    {
+        $record = $this->db->getRecord($id);
+        return [
+            'id' => $record['registry_object_id'],
+            'key' => $record['key'],
+            'class' => $record['class'],
+            'type' => $record['type'],
+            'data_source_id' => $record['data_source_id'],
+            'slug' => $record['slug'],
+            'group' => isset($record['group']) ? $record['group'] : null,
+            'record_owners' => $this->db->getRecordOwners($record['data_source_id'])
+        ];
+    }
+
+    private function parseFiltersFields($content)
+    {
+        $nonSearchFields = ['result_numFound', 'result_roid', 'result_group', 'result_dsid', 'date', 'event', 'ip', 'user_agent', 'is_bot'];
+        foreach ($nonSearchFields as $field) {
+            unset($content[$field]);
+        }
+
+        return $content;
+    }
+
+    private function parseResultFields($content)
+    {
+        $owners = [];
+        if (isset($content['result_dsid']) && is_array($content['result_dsid'])) {
+            foreach ($content['result_dsid'] as $dataSourceID) {
+                $owners = array_merge($owners, $this->db->getRecordOwners($dataSourceID));
+            }
+            $owners = array_values(array_unique($owners));
+        }
+        return [
+            'numFound' => $content['result_numFound'],
+            'result_id' => isset($content['result_roid']) ? $content['result_roid'] : null,
+            'result_group' => isset($content['result_group']) ? $content['result_group'] : null,
+            'result_dsid' => isset($content['result_dsid']) ? $content['result_dsid'] : null,
+            'record_owners' => $owners
+        ];
     }
 
     /**
@@ -332,7 +509,7 @@ class ProcessCommand extends Command
      * @param  string $string
      * @return array(key=>value)
      */
-    private function readString($string)
+    public function readString($string)
     {
         $result = array();
         preg_match_all("/\[([^\]]*)\]/", $string, $matches);
