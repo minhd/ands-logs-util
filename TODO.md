@@ -1,5 +1,6 @@
 - [x] Database Adapter for interacting with Registry and Roles database
 - [x] Update mapping to be more align with Monolog
+- [ ] Write automated tests
 - [ ] Enable options for converting bots event
 - [ ] Refactor Portal Processor to a Processor class
 - [ ] Add other type of processors
