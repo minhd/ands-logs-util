@@ -106,13 +106,18 @@ class ProcessCommand extends Command
             $content = $this->readString($line);
 
             // does not convert empty event or event without date
-            if (!$content || count($content) === 0 || !array_key_exists('date', $content)) {
+            if (!$content
+                || count($content) === 0
+                || !array_key_exists('date', $content)
+                || !array_key_exists('event', $content)
+            ) {
                 continue;
             }
 
             // does not convert bot events
             $content['user_agent'] = array_key_exists('user_agent', $content) ? $content['user_agent'] : 'dude';
             $content['is_bot'] = $this->isBot($content['user_agent']);
+            $content['event'] = isset($content['event']) ? $content['event'] : 'unknown_event';
 
             if ($content['is_bot']) {
                 continue;
@@ -167,6 +172,10 @@ class ProcessCommand extends Command
 
     private function parseUser($content)
     {
+        if (!isset($content['ip'])) {
+            return [];
+        }
+
         $user = [
             'ip' => $content['ip'],
             'user_agent' => $content['user_agent'],
@@ -188,6 +197,7 @@ class ProcessCommand extends Command
 
     private function parseEvent($content)
     {
+
         switch ($content['event']) {
             case "portal_view":
                 return [
@@ -275,6 +285,15 @@ class ProcessCommand extends Command
                     'level' => 200
                 ];
                 break;
+            case "outbound":
+                return [
+                    'event' => 'portal_outbound',
+                    'channel' => 'portal',
+                    'level' => 200,
+                    'outbound_from' => $content['from'],
+                    'outbound_to' => $content['to']
+                ];
+                break;
             default:
                 $this->debug("No handler for: ". $content['event']);
                 return [
@@ -320,7 +339,7 @@ class ProcessCommand extends Command
             $owners = array_values(array_unique($owners));
         }
         return [
-            'numFound' => $content['result_numFound'],
+            'numFound' => isset($content['result_numFound']) ? $content['result_numFound']: null,
             'result_id' => isset($content['result_roid']) ? $content['result_roid'] : null,
             'result_group' => isset($content['result_group']) ? $content['result_group'] : null,
             'result_dsid' => isset($content['result_dsid']) ? $content['result_dsid'] : null,
