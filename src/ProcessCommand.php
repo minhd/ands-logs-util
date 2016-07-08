@@ -3,7 +3,6 @@
 namespace MinhD\ANDSLogUtil;
 
 use Jaybizzle\CrawlerDetect\CrawlerDetect;
-use MinhD\ANDSLogUtil\DatabaseAdapter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -47,7 +46,7 @@ class ProcessCommand extends Command
 
     /**
      * Execute the Command
-     * @param  InputInterface  $input
+     * @param  InputInterface $input
      * @param  OutputInterface $output
      * @return
      */
@@ -65,21 +64,21 @@ class ProcessCommand extends Command
          * read the From Directory to get a list of files and dates
          * @todo refactor to use symfony/finder component
          */
-        $fromDir = $fromDir.$logType;
-        $this->verbose('Processing directory: '. $fromDir);
+        $fromDir = $fromDir . $logType;
+        $this->verbose('Processing directory: ' . $fromDir);
         $dates = $this->readDirectory($fromDir);
-        $this->debug('Found '.count($dates). ' dates for processing');
+        $this->debug('Found ' . count($dates) . ' dates for processing');
 
         // prepare dates array with optional from and to
         $dates = $this->prepareDates($dates, $input);
 
-        $this->verbose('Processing '.count($dates). ' dates starting with '.reset($dates). ' ends with '.end($dates));
+        $this->verbose('Processing ' . count($dates) . ' dates starting with ' . reset($dates) . ' ends with ' . end($dates));
 
         // Process the logs
         foreach ($dates as $date) {
-            $this->ensureDirectoryCreation([$toDir, $toDir.$logType]);
-            $inputFilePath = $fromDir.'/log-'.$logType.'-'.$date.'.php';
-            $outputFilePath = $toDir.$logType.'/'.$date.'.log';
+            $this->ensureDirectoryCreation([$toDir, $toDir . $logType]);
+            $inputFilePath = $fromDir . '/log-' . $logType . '-' . $date . '.php';
+            $outputFilePath = $toDir . $logType . '/' . $date . '.log';
             $this->processLogFile($date, $logType, $inputFilePath, $outputFilePath);
         }
 
@@ -88,7 +87,7 @@ class ProcessCommand extends Command
 
     /**
      * Process a single log date
-     * @param  string $date    yyyy-mm-dd
+     * @param  string $date yyyy-mm-dd
      * @param  string $logType
      * @param  string $inputFilePath
      * @param  string $outputFilePath
@@ -96,10 +95,10 @@ class ProcessCommand extends Command
      */
     private function processLogFile($date, $logType, $inputFilePath, $outputFilePath)
     {
-        $this->debug('Processing '. $date);
-        $this->debug('File path: '. $inputFilePath);
+        $this->debug('Processing ' . $date);
+        $this->debug('File path: ' . $inputFilePath);
         $lines = $this->readFileToLine($inputFilePath);
-        $this->debug('Lines count: '. count($lines));
+        $this->debug('Lines count: ' . count($lines));
 
         foreach ($lines as $line) {
 
@@ -131,7 +130,7 @@ class ProcessCommand extends Command
             unset($content);
             unset($parsed);
         }
-        $this->verbose('Finished '.$date);
+        $this->verbose('Finished ' . $date);
     }
 
     public function processLineEvent($content, $logType)
@@ -162,7 +161,7 @@ class ProcessCommand extends Command
         $fields = array_merge($fields, $this->parseEvent($content));
         $fields = array_merge($fields, $this->parseUser($content));
 
-        foreach ($fields as $key=>$value) {
+        foreach ($fields as $key => $value) {
             $parsed['@fields'][$key] = $value;
         }
 
@@ -217,7 +216,7 @@ class ProcessCommand extends Command
                 ];
                 break;
             case "portal_modify_user_data":
-                $action = array_key_exists('action', $content) ? $content['action']: null;
+                $action = array_key_exists('action', $content) ? $content['action'] : null;
                 $event = [
                     'event' => 'portal_modify_user_data',
                     'channel' => 'portal',
@@ -228,7 +227,7 @@ class ProcessCommand extends Command
                 ];
                 if (array_key_exists('raw', $content)
                     && $decoded = json_decode($content['raw'], true)
-                    ) {
+                ) {
                     $event['profile_action']['data'] = $decoded;
                 }
                 return $event;
@@ -295,9 +294,9 @@ class ProcessCommand extends Command
                 ];
                 break;
             default:
-                $this->debug("No handler for: ". $content['event']);
+                $this->debug("No handler for: " . $content['event']);
                 return [
-                    'event' => "unknown event: ".$content['event']
+                    'event' => "unknown event: " . $content['event']
                 ];
                 break;
         }
@@ -339,7 +338,7 @@ class ProcessCommand extends Command
             $owners = array_values(array_unique($owners));
         }
         return [
-            'numFound' => isset($content['result_numFound']) ? $content['result_numFound']: null,
+            'numFound' => isset($content['result_numFound']) ? $content['result_numFound'] : null,
             'result_id' => isset($content['result_roid']) ? $content['result_roid'] : null,
             'result_group' => isset($content['result_group']) ? $content['result_group'] : null,
             'result_dsid' => isset($content['result_dsid']) ? $content['result_dsid'] : null,
@@ -349,7 +348,7 @@ class ProcessCommand extends Command
 
     /**
      * return if a given user agent is a bot
-     * @param  string  $agent
+     * @param  string $agent
      * @return boolean
      */
     private function isBot($agent)
@@ -373,7 +372,7 @@ class ProcessCommand extends Command
     {
         foreach ($dirs as $dir) {
             if (!is_dir($dir)) {
-                $this->debug($dir. ' does not exist Attempting to create');
+                $this->debug($dir . ' does not exist Attempting to create');
                 @mkdir($dir);
                 @chmod($dir, 0755);
             }
@@ -391,10 +390,10 @@ class ProcessCommand extends Command
     {
         if (file_exists($outputFilePath)) {
             $fh = fopen($outputFilePath, 'a');
-            fwrite($fh, $message."\n");
+            fwrite($fh, $message . "\n");
         } else {
             $fh = fopen($outputFilePath, 'w');
-            fwrite($fh, $message."\n");
+            fwrite($fh, $message . "\n");
         }
         fclose($fh);
     }
@@ -431,7 +430,7 @@ class ProcessCommand extends Command
                 if (array_key_exists($field, $record)) {
                     $content[$field] = $record[$field];
                 } else {
-                    $content['unknown_'.$field] = true;
+                    $content['unknown_' . $field] = true;
                 }
             }
 
@@ -488,14 +487,14 @@ class ProcessCommand extends Command
 
         if ($from_date = $this->input->getOption('from_date')) {
             $dates = array_slice($dates, array_search($from_date, $dates));
-            $this->debug('From Date: '. $from_date);
+            $this->debug('From Date: ' . $from_date);
         }
 
         if ($to_date = $this->input->getOption('to_date')) {
             $dates = array_reverse($dates);
             $dates = array_slice($dates, array_search($to_date, $dates));
             $dates = array_reverse($dates);
-            $this->debug('To Date: '. $to_date);
+            $this->debug('To Date: ' . $to_date);
         }
 
         return $dates;
