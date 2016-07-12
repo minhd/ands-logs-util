@@ -74,15 +74,11 @@ class DatabaseAdapter
         $result = $query->fetch_assoc();
 
         if (array_key_exists('value', $result)) {
+            $this->cache->set($cacheId, serialize($result['value']));
             return $result['value'];
         }
 
         return null;
-    }
-
-    public function removeCache($cacheID)
-    {
-
     }
 
     public function getRecordOwners($dataSourceID) {
