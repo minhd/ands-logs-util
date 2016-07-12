@@ -9,6 +9,7 @@ class DatabaseAdapter
     protected $db_registry = null;
     protected $db_roles = null;
     protected $cache;
+    private $cacheEnabled = true;
 
     public function __construct($config)
     {
@@ -30,9 +31,14 @@ class DatabaseAdapter
         $this->cache->setCacheDirectory('cache');
     }
 
+    public function setCacheEnabled($value)
+    {
+        $this->cacheEnabled = $value;
+    }
+
     public function getRecord($roId) {
         $cacheId = 'ro.'.$roId;
-        if ($this->cache->check($cacheId)) {
+        if ($this->cache->check($cacheId) && $this->cacheEnabled) {
             return unserialize($this->cache->get($cacheId));
         }
 
@@ -43,8 +49,40 @@ class DatabaseAdapter
             return false;
         }
         $result = $query->fetch_assoc();
+
+        // get group value
+        if (!array_key_exists("group", $result)) {
+            $result['group'] = $this->getRecordAttribute($result['registry_object_id'], 'group');
+        }
+
         $this->cache->set($cacheId, serialize($result));
         return $result;
+    }
+
+    public function getRecordAttribute($recordID, $attribute)
+    {
+        $cacheId = 'ro.attr.'.$attribute.'.'.$recordID;
+        if ($this->cache->check($cacheId) && $this->cacheEnabled) {
+            return unserialize($this->cache->get($cacheId));
+        }
+
+        //set
+        $query = $this->db_registry->query("select * from dbs_registry.registry_object_attributes where registry_object_id = '{$recordID}' and attribute = '{$attribute}' limit 1");
+        if (!$query->num_rows) {
+            return false;
+        }
+        $result = $query->fetch_assoc();
+
+        if (array_key_exists('value', $result)) {
+            return $result['value'];
+        }
+
+        return null;
+    }
+
+    public function removeCache($cacheID)
+    {
+
     }
 
     public function getRecordOwners($dataSourceID) {
