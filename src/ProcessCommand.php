@@ -100,6 +100,9 @@ class ProcessCommand extends Command
         $lines = $this->readFileToLine($inputFilePath);
         $this->debug('Lines count: ' . count($lines));
 
+        //delete the file if it exists
+        $this->cleanFile($outputFilePath);
+
         foreach ($lines as $line) {
 
             $content = $this->readString($line);
@@ -131,6 +134,14 @@ class ProcessCommand extends Command
             unset($parsed);
         }
         $this->verbose('Finished ' . $date);
+    }
+
+    public function cleanFile($path)
+    {
+        if (file_exists($path)) {
+            unlink($path);
+        }
+        $this->verbose("File ".$path. " removed.");
     }
 
     public function processLineEvent($content, $logType)
@@ -307,7 +318,7 @@ class ProcessCommand extends Command
     {
         $record = $this->db->getRecord($id);
         return [
-            'id' => $record['registry_object_id'],
+            'id' => isset($record['registry_object_id']) ? $record['registry_object_id'] : $id,
             'key' => $record['key'],
             'class' => $record['class'],
             'type' => $record['type'],

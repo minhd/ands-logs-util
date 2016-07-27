@@ -26,11 +26,13 @@ $portal_modify_user_data ='[date:2015-12-30 22:00:47] [event:portal_modify_user_
 $portal_tag_add = '[date:2015-08-17 14:46:14] [key:http://data.aad.gov.au/aadc/4c217549-cef3-40f4-8ac4-79a24acd3129][id:354965][user:Gerry Ryder][user_from:aaf.edu.au][event:portal_tag_add][ip:144.110.19.14][user_agent:Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0)][username:Gerry Ryder][userid:oTMKL7aT53ixthdH8maPs2YBaWE]';
 $portal_preview = '[date:2016-01-28 11:01:02] [event:portal_preview][roid:644722][dsid:183][group:data.gov.au][class:collection][ip:101.103.137.57][user_agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9]';
 
+$portal_view_test_2 = "[date:2014-12-28 05:22:48] [event:portal_view][roid:11618][template:default][ip:62.210.96.36][user_agent:Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)]";
+
 // var_dump($databaseAdapter->getRecordOwners(7));
 // $databaseAdapter->test();
 
-// $content = $processCommand->readString($portal_view);
-// echo ($processCommand->processLineEvent($content, 'portal'));
+ $content = $processCommand->readString($portal_view_test_2);
+ echo ($processCommand->processLineEvent($content, 'portal'));
 
 // $content = $processCommand->readString($portal_search);
 // echo ($processCommand->processLineEvent($content, 'portal'));
@@ -38,8 +40,8 @@ $portal_preview = '[date:2016-01-28 11:01:02] [event:portal_preview][roid:644722
 // $content = $processCommand->readString($portal_search_2);
 // echo ($processCommand->processLineEvent($content, 'portal'));
 
-$content = $processCommand->readString($portal_modify_user_data);
-echo ($processCommand->processLineEvent($content, 'portal'));
+//$content = $processCommand->readString($portal_modify_user_data);
+//echo ($processCommand->processLineEvent($content, 'portal'));
 
 // $content = $processCommand->readString($portal_tag_add);
 // echo ($processCommand->processLineEvent($content, 'portal'));

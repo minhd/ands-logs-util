@@ -106,16 +106,16 @@
         },
         {
             "name": "jaybizzle/crawler-detect",
-            "version": "v1.2.7",
+            "version": "v1.2.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/JayBizzle/Crawler-Detect.git",
-                "reference": "804014626a63c6a03705b930635c68fd80459e78"
+                "reference": "f86dd08c048e750a0a65f142c7efdfe4de4d2acf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/JayBizzle/Crawler-Detect/zipball/804014626a63c6a03705b930635c68fd80459e78",
-                "reference": "804014626a63c6a03705b930635c68fd80459e78",
+                "url": "https://api.github.com/repos/JayBizzle/Crawler-Detect/zipball/f86dd08c048e750a0a65f142c7efdfe4de4d2acf",
+                "reference": "f86dd08c048e750a0a65f142c7efdfe4de4d2acf",
                 "shasum": ""
             },
             "require": {
@@ -150,7 +150,7 @@
                 "crawlerdetect",
                 "php crawler detect"
             ],
-            "time": "2016-07-09 16:42:31"
+            "time": "2016-07-20 20:53:20"
         },
         {
             "name": "myclabs/deep-copy",
@@ -648,16 +648,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "5.4.6",
+            "version": "5.4.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "2f1fc94b77ea6418bd6a06c64a1dac0645fbce59"
+                "reference": "6c8a756c17a1a92a066c99860eb57922e8b723da"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/2f1fc94b77ea6418bd6a06c64a1dac0645fbce59",
-                "reference": "2f1fc94b77ea6418bd6a06c64a1dac0645fbce59",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/6c8a756c17a1a92a066c99860eb57922e8b723da",
+                "reference": "6c8a756c17a1a92a066c99860eb57922e8b723da",
                 "shasum": ""
             },
             "require": {
@@ -722,7 +722,7 @@
                 "testing",
                 "xunit"
             ],
-            "time": "2016-06-16 06:01:15"
+            "time": "2016-07-21 06:55:27"
         },
         {
             "name": "phpunit/phpunit-mock-objects",
